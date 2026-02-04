@@ -1,0 +1,28 @@
+image:
+  file: .gitpod.Dockerfile
+
+tasks:
+  - init: |
+      # Start supporting services
+      docker compose up -d
+      # Install web deps and generate prisma client
+      cd web
+      npm ci
+      npx prisma generate || true
+      # Apply migrations (create if not present) and seed
+      npx prisma migrate deploy || npx prisma migrate dev --name init --skip-seed || true
+      npm run prisma:seed || true
+    command: |
+      cd web
+      npm run dev
+
+ports:
+  - port: 3000
+    onOpen: open-preview
+
+vscode:
+  extensions:
+    - dbaeumer.vscode-eslint
+    - esbenp.prettier-vscode
+
+# Gitpod tips: open this repo in Gitpod with https://gitpod.io/#<repo-url>

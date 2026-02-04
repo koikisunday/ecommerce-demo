@@ -1,0 +1,10 @@
+{
+  "name": "E-commerce Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "forwardPorts": [3000],
+  "postCreateCommand": "docker compose up -d || true && cd web && npm ci && npx prisma generate || true",
+  "features": {}
+}
