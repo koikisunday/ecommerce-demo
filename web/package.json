@@ -40,6 +40,7 @@
     "node-mocks-http": "^1.17.2"
   },
   "prisma": {
-    "seed": "ts-node --transpile-only prisma/seed.ts"
+    "schema": "../prisma/schema.prisma",
+    "seed": "ts-node --transpile-only ../prisma/seed.ts"
   }
 }
