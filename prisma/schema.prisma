@@ -16,9 +16,8 @@ model User {
   hashedPassword String?
   emailVerified  DateTime?
   image          String?
-  role           UserRole  @default(CUSTOMER)
-  vendor         Vendor?   @relation(fields: [vendorId], references: [id])
-  vendorId       Int?
+  role           String    @default("CUSTOMER")
+  vendor         Vendor?
   accounts       Account[]
   sessions       Session[]
   createdAt      DateTime  @default(now())
@@ -29,22 +28,23 @@ model Vendor {
   name        String
   description String?
   owner       User     @relation(fields: [ownerId], references: [id])
-  ownerId     Int
+  ownerId     Int      @unique
   products    Product[]
   createdAt   DateTime @default(now())
 }
 
 model Product {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   title       String
-  slug        String   @unique
+  slug        String    @unique
   description String?
-  vendor      Vendor   @relation(fields: [vendorId], references: [id])
+  vendor      Vendor    @relation(fields: [vendorId], references: [id])
   vendorId    Int
   price       Int
-  sku         String   @unique
-  inventory   Int      @default(0)
-  createdAt   DateTime @default(now())
+  sku         String    @unique
+  inventory   Int       @default(0)
+  items       OrderItem[]
+  createdAt   DateTime  @default(now())
 }
 
 /// NextAuth models (Prisma adapter)
@@ -83,27 +83,12 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-enum UserRole {
-  CUSTOMER
-  ADMIN
-  VENDOR
-}
-
-enum OrderStatus {
-  PENDING
-  PAID
-  FAILED
-  CANCELLED
-  SHIPPED
-  DELIVERED
-}
-
 model Order {
   id                 Int         @id @default(autoincrement())
   customerEmail      String
   customerName       String?
   totalAmount        Int
-  status             OrderStatus @default(PENDING)
+  status             String      @default("PENDING")
   paystackReference  String?     @unique
   items              OrderItem[]
   payments           Payment[]
@@ -128,6 +113,6 @@ model Payment {
   provider    String
   status      String
   reference   String?
-  rawPayload  Json?
+  rawPayload  String?
   createdAt   DateTime @default(now())
 }
