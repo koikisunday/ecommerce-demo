@@ -13,6 +13,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let total = 0
   const orderItems = []
   for (const it of items) {
+    if (typeof it?.productId !== 'number' || typeof it?.quantity !== 'number' || it.quantity <= 0) {
+      return res.status(400).json({ error: 'Invalid item payload' })
+    }
     const product = await prisma.product.findUnique({ where: { id: it.productId } })
     if (!product) return res.status(404).json({ error: 'Product not found' })
     total += product.price * it.quantity

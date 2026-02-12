@@ -4,19 +4,23 @@ import * as paystack from '../utils/paystack'
 import { PrismaClient } from '@prisma/client'
 
 jest.mock('@prisma/client', () => {
-  const m = {
-    prisma: true,
-    PrismaClient: jest.fn().mockImplementation(() => ({
-      product: { findUnique: jest.fn() },
-      order: { create: jest.fn(), update: jest.fn() }
-    }))
+  const prisma = {
+    product: { findUnique: jest.fn() },
+    order: { create: jest.fn(), update: jest.fn() }
   }
-  return m
+
+  return {
+    PrismaClient: jest.fn(() => prisma)
+  }
 })
 
 jest.mock('../utils/paystack')
 
 describe('Checkout API', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
   test('creates an order and returns authorization url', async () => {
     const mockProduct = { id: 1, price: 2000 }
     const prismaAny: any = new PrismaClient()

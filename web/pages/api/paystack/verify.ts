@@ -16,23 +16,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // find order
     const order = await prisma.order.findUnique({ where: { paystackReference: ref } })
     if (order) {
-      await prisma.payment.create({
-        data: {
-          orderId: order.id,
-          amount: result.data.amount || order.totalAmount,
-          provider: 'paystack',
-          status,
-          reference: ref,
-          rawPayload: result.data
-        }
-      })
+      const existingPayment = await prisma.payment.findFirst({ where: { reference: ref, provider: 'paystack' } })
+      if (!existingPayment) {
+        await prisma.payment.create({
+          data: {
+            orderId: order.id,
+            amount: result.data.amount || order.totalAmount,
+            provider: 'paystack',
+            status,
+            reference: ref,
+            rawPayload: JSON.stringify(result.data)
+          }
+        })
+      }
       if (status === 'success') {
         await prisma.order.update({ where: { id: order.id }, data: { status: 'PAID' } })
       }
     }
 
     // redirect to a simple page
-    return res.redirect(302, '/checkout/result?reference=' + encodeURIComponent(ref))
+    const statusParam = status === 'success' ? 'PAID' : 'PENDING'
+    return res.redirect(
+      302,
+      '/checkout/result?reference=' + encodeURIComponent(ref) + '&status=' + encodeURIComponent(statusParam)
+    )
   } catch (err) {
     console.error(err)
     return res.status(500).end('Verification failed')
