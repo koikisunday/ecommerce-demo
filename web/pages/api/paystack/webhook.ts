@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import crypto from 'crypto'
 import { PrismaClient } from '@prisma/client'
+import { InventoryUnavailableError, markOrderPaidWithInventory } from '../../../utils/orders'
 
 export const config = { api: { bodyParser: false } }
 
@@ -44,23 +45,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const data = event.data
     if ((evt === 'charge.success' || evt === 'charge.completed' || evt === 'payment.success') && data && data.status === 'success') {
       const reference = data.reference
-      const order = await prisma.order.findUnique({ where: { paystackReference: reference } })
+      const order = await prisma.order.findUnique({
+        where: { paystackReference: reference },
+        select: { id: true, totalAmount: true }
+      })
       if (order) {
-        const existingPayment = await prisma.payment.findFirst({ where: { reference, provider: 'paystack' } })
-        if (!existingPayment) {
-          await prisma.payment.create({
-            data: {
-              orderId: order.id,
-              amount: data.amount ?? order.totalAmount,
-              provider: 'paystack',
-              status: data.status,
-              reference,
-              rawPayload: JSON.stringify(data)
-            }
+        try {
+          await markOrderPaidWithInventory(prisma, {
+            orderId: order.id,
+            amount: data.amount ?? order.totalAmount,
+            status: data.status,
+            reference,
+            rawPayload: data
           })
+          console.log('Order updated to PAID for reference', reference)
+        } catch (error) {
+          if (error instanceof InventoryUnavailableError) {
+            await prisma.order.update({ where: { id: order.id }, data: { status: 'FAILED' } })
+            console.warn('Inventory unavailable for paid order reference', reference)
+          } else {
+            throw error
+          }
         }
-        await prisma.order.update({ where: { id: order.id }, data: { status: 'PAID' } })
-        console.log('Order updated to PAID for reference', reference)
       } else {
         console.warn('No order found for reference', reference)
       }

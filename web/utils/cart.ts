@@ -76,3 +76,9 @@ export function removeFromCart(productId: number): CartItem[] {
   writeCart(next)
   return next
 }
+
+export function clearCart(): CartItem[] {
+  const next: CartItem[] = []
+  writeCart(next)
+  return next
+}

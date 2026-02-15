@@ -1,8 +1,17 @@
 import { useRouter } from 'next/router'
+import { useEffect } from 'react'
+import { clearCart } from '../../utils/cart'
 
 export default function CheckoutResult() {
   const router = useRouter()
   const { reference, status } = router.query
+
+  useEffect(() => {
+    if (!router.isReady) return
+    if (typeof status !== 'string') return
+    if (status.toUpperCase() !== 'PAID') return
+    clearCart()
+  }, [router.isReady, status])
 
   const message =
     typeof status === 'string' && status.toUpperCase() === 'PAID'
