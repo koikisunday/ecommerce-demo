@@ -5,6 +5,7 @@ import type { GetServerSideProps } from 'next'
 import { PrismaClient } from '@prisma/client'
 import { getSession } from 'next-auth/react'
 import { readCart, removeFromCart, setCartItemQuantity, writeCart, type CartItem } from '../utils/cart'
+import type { CartMismatch } from '../utils/checkoutValidation'
 
 type ProductForCheckout = {
   id: number
@@ -25,6 +26,7 @@ export default function CheckoutPage({ products, customerEmail, customerName }: 
   const [isLoaded, setIsLoaded] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [mismatchMessages, setMismatchMessages] = useState<string[]>([])
 
   const productMap = useMemo(() => new Map(products.map((product) => [product.id, product])), [products])
 
@@ -45,7 +47,8 @@ export default function CheckoutPage({ products, customerEmail, customerName }: 
   const checkoutItems = useMemo(() => {
     return viewItems.map((item) => ({
       productId: item.product.id,
-      quantity: item.quantity
+      quantity: item.quantity,
+      expectedUnitPrice: item.product.price
     }))
   }, [viewItems])
 
@@ -74,6 +77,7 @@ export default function CheckoutPage({ products, customerEmail, customerName }: 
   async function startCheckout(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setErrorMessage(null)
+    setMismatchMessages([])
 
     if (checkoutItems.length === 0) {
       setErrorMessage('Your cart is empty. Add products before checkout.')
@@ -89,6 +93,21 @@ export default function CheckoutPage({ products, customerEmail, customerName }: 
       window.location.href = res.data.authorization_url
     } catch (err) {
       console.error(err)
+      if (axios.isAxiosError(err)) {
+        if (err.response?.status === 409 && Array.isArray(err.response.data?.mismatches)) {
+          const mismatches = err.response.data.mismatches as CartMismatch[]
+          setErrorMessage(err.response.data.error ?? 'Cart is out of date.')
+          setMismatchMessages(mismatches.map((mismatch) => mismatch.message))
+          setIsSubmitting(false)
+          return
+        }
+
+        if (err.response?.status === 401) {
+          window.location.href = '/auth/signin?callbackUrl=' + encodeURIComponent('/checkout')
+          return
+        }
+      }
+
       setErrorMessage('Error starting checkout. Please try again.')
       setIsSubmitting(false)
     }
@@ -181,6 +200,13 @@ export default function CheckoutPage({ products, customerEmail, customerName }: 
               </div>
 
               {errorMessage && <p className="mb-3 text-sm text-red-600">{errorMessage}</p>}
+              {mismatchMessages.length > 0 && (
+                <ul className="mb-3 list-disc rounded border border-red-200 bg-red-50 p-3 pl-8 text-sm text-red-700">
+                  {mismatchMessages.map((message) => (
+                    <li key={message}>{message}</li>
+                  ))}
+                </ul>
+              )}
 
               <button
                 type="submit"

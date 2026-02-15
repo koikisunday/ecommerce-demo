@@ -6,7 +6,7 @@ import * as nextAuthReact from 'next-auth/react'
 
 jest.mock('@prisma/client', () => {
   const prisma = {
-    product: { findUnique: jest.fn() },
+    product: { findMany: jest.fn() },
     order: { create: jest.fn(), update: jest.fn() }
   }
 
@@ -31,12 +31,12 @@ describe('Checkout API', () => {
   test('creates an order and returns authorization url', async () => {
     const mockProduct = { id: 1, price: 2000 }
     const prismaAny: any = new PrismaClient()
-    prismaAny.product.findUnique.mockResolvedValue(mockProduct)
+    prismaAny.product.findMany.mockResolvedValue([{ ...mockProduct, title: 'Demo Product', sku: 'DP-1', inventory: 10 }])
     prismaAny.order.create.mockResolvedValue({ id: 1 })
 
     ;(paystack.initializeTransaction as jest.Mock).mockResolvedValue({ data: { authorization_url: 'https://paystack/pay', reference: 'ref-123' } })
 
-    const { req, res } = createMocks({ method: 'POST', body: { items: [{ productId: 1, quantity: 1 }] } })
+    const { req, res } = createMocks({ method: 'POST', body: { items: [{ productId: 1, quantity: 1, expectedUnitPrice: 2000 }] } })
     await checkoutHandler(req as any, res as any)
 
     expect(res._getStatusCode()).toBe(200)
@@ -51,5 +51,24 @@ describe('Checkout API', () => {
     await checkoutHandler(req as any, res as any)
 
     expect(res._getStatusCode()).toBe(401)
+  })
+
+  test('returns item-level mismatches when price or stock changed', async () => {
+    const prismaAny: any = new PrismaClient()
+    prismaAny.product.findMany.mockResolvedValue([
+      { id: 1, title: 'Demo Product', sku: 'DP-1', price: 2500, inventory: 1 }
+    ])
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { items: [{ productId: 1, quantity: 2, expectedUnitPrice: 2000 }] }
+    })
+
+    await checkoutHandler(req as any, res as any)
+
+    expect(res._getStatusCode()).toBe(409)
+    const data = JSON.parse(res._getData())
+    expect(Array.isArray(data.mismatches)).toBe(true)
+    expect(data.mismatches[0].message).toContain('only has')
   })
 })

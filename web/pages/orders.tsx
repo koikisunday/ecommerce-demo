@@ -17,7 +17,14 @@ export default function OrdersPage({ orders }: any) {
             <div><strong>Total:</strong> {o.totalAmount}</div>
             <div><strong>Items:</strong>
               <ul>
-                {o.items.map((it: any) => (<li key={it.id}>{it.quantity} × {it.unitPrice}</li>))}
+                {o.items.map((it: any) => (
+                  <li key={it.id}>
+                    {it.productTitleSnapshot || `Product #${it.productId}`}
+                    {it.productSkuSnapshot ? ` (${it.productSkuSnapshot})` : ''}
+                    {' '}
+                    - {it.quantity} x ${(it.unitPrice / 100).toFixed(2)}
+                  </li>
+                ))}
               </ul>
             </div>
           </li>

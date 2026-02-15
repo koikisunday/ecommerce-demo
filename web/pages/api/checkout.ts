@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { PrismaClient } from '@prisma/client'
 import { getSession } from 'next-auth/react'
 import { initializeTransaction } from '../../utils/paystack'
+import { buildOrderDraftFromItems, type CheckoutRequestItem } from '../../utils/checkoutValidation'
 
 const prisma = new PrismaClient()
 
@@ -16,9 +17,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { items } = req.body
   if (!items || !Array.isArray(items)) return res.status(400).json({ error: 'Invalid payload' })
 
-  // calculate total
-  let total = 0
-  const orderItems = []
+  const normalizedItems: CheckoutRequestItem[] = []
   for (const it of items) {
     if (
       typeof it?.productId !== 'number' ||
@@ -29,11 +28,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     ) {
       return res.status(400).json({ error: 'Invalid item payload' })
     }
-    const product = await prisma.product.findUnique({ where: { id: it.productId } })
-    if (!product) return res.status(404).json({ error: 'Product not found' })
-    if (it.quantity > product.inventory) return res.status(400).json({ error: 'Requested quantity not available' })
-    total += product.price * it.quantity
-    orderItems.push({ productId: product.id, quantity: it.quantity, unitPrice: product.price })
+
+    if (typeof it.expectedUnitPrice !== 'undefined' && (typeof it.expectedUnitPrice !== 'number' || !Number.isInteger(it.expectedUnitPrice))) {
+      return res.status(400).json({ error: 'Invalid item payload' })
+    }
+
+    normalizedItems.push({
+      productId: it.productId,
+      quantity: it.quantity,
+      expectedUnitPrice: it.expectedUnitPrice
+    })
+  }
+
+  const { totalAmount, orderItems, mismatches } = await buildOrderDraftFromItems(prisma, normalizedItems)
+  if (mismatches.length > 0) {
+    return res.status(409).json({
+      error: 'Cart is out of date. Review item changes and try again.',
+      mismatches
+    })
   }
 
   // create order in DB (pending)
@@ -41,15 +53,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     data: {
       customerEmail,
       customerName,
-      totalAmount: total,
+      totalAmount,
       status: 'PENDING',
-      items: { create: orderItems }
+      items: { create: orderItems as any }
     }
   })
 
   // initialize Paystack transaction (amount in kobo if NGN; this example assumes minor units already)
   const callbackUrl = `${process.env.NEXTAUTH_URL}/api/paystack/verify`
-  const payRes = await initializeTransaction({ email: customerEmail, amount: total * 100, callback_url: callbackUrl })
+  const payRes = await initializeTransaction({ email: customerEmail, amount: totalAmount * 100, callback_url: callbackUrl })
 
   const reference = payRes.data.reference
 

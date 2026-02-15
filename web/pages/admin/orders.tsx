@@ -1,13 +1,19 @@
 import { GetServerSideProps } from 'next'
 import { getSession } from 'next-auth/react'
 import { PrismaClient } from '@prisma/client'
+import Link from 'next/link'
 
 const prisma = new PrismaClient()
 
 export default function AdminOrdersPage({ orders }: any) {
   return (
     <div className="min-h-screen p-8">
-      <h1 className="text-2xl font-bold mb-4">All Orders (Admin)</h1>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">All Orders (Admin)</h1>
+        <Link href="/admin/inventory" className="rounded border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
+          Manage inventory
+        </Link>
+      </div>
       {orders.length === 0 && <p>No orders found.</p>}
       <ul>
         {orders.map((o: any) => (
