@@ -2,6 +2,8 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import crypto from 'crypto'
 import { PrismaClient } from '@prisma/client'
 import { InventoryUnavailableError, markOrderPaidWithInventory } from '../../../utils/orders'
+import { logError, logInfo, logWarn } from '../../../utils/observability'
+import { ORDER_STATUS } from '../../../utils/orderStatus'
 
 export const config = { api: { bodyParser: false } }
 
@@ -32,12 +34,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const raw = await getRawBody(req)
   const expected = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET || '').update(raw.toString('utf8')).digest('hex')
   if (!signature || signature !== expected) {
-    console.warn('Invalid Paystack signature')
+    logWarn('paystack_webhook.invalid_signature', {})
     return res.status(400).json({ error: 'Invalid signature' })
   }
 
   const event = JSON.parse(raw.toString())
-  console.log('Paystack webhook event:', event.event)
+  logInfo('paystack_webhook.received', { event: event.event })
 
   try {
     // handle successful charge
@@ -58,21 +60,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             reference,
             rawPayload: data
           })
-          console.log('Order updated to PAID for reference', reference)
+          logInfo('paystack_webhook.order_paid', { orderId: order.id, reference })
         } catch (error) {
           if (error instanceof InventoryUnavailableError) {
-            await prisma.order.update({ where: { id: order.id }, data: { status: 'FAILED' } })
-            console.warn('Inventory unavailable for paid order reference', reference)
+            await prisma.order.update({ where: { id: order.id }, data: { status: ORDER_STATUS.FAILED } })
+            logWarn('paystack_webhook.inventory_unavailable', { orderId: order.id, reference })
           } else {
             throw error
           }
         }
       } else {
-        console.warn('No order found for reference', reference)
+        logWarn('paystack_webhook.order_not_found', { reference })
       }
     }
   } catch (err) {
-    console.error('Error handling webhook', err)
+    logError('paystack_webhook.failed', {
+      message: err instanceof Error ? err.message : 'Unknown error'
+    })
     return res.status(500).json({ error: 'internal' })
   }
 

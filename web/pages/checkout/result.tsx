@@ -5,8 +5,9 @@ import axios from 'axios'
 import { PrismaClient } from '@prisma/client'
 import { clearCart } from '../../utils/cart'
 import type { CartMismatch } from '../../utils/checkoutValidation'
+import { normalizeOrderStatus, ORDER_STATUS, type OrderStatus } from '../../utils/orderStatus'
 
-type ResultStatus = 'PAID' | 'PENDING' | 'FAILED' | 'UNKNOWN'
+type ResultStatus = OrderStatus | 'UNKNOWN'
 
 type CheckoutResultItem = {
   id: number
@@ -27,6 +28,14 @@ type CheckoutResultOrder = {
   items: CheckoutResultItem[]
 }
 
+type OrderItemSnapshotLike = {
+  id: number
+  quantity: number
+  unitPrice: number
+  productTitleSnapshot?: string
+  productSkuSnapshot?: string
+}
+
 type CheckoutResultProps = {
   reference: string | null
   status: ResultStatus
@@ -34,18 +43,13 @@ type CheckoutResultProps = {
 }
 
 function normalizeStatus(value: string | null | undefined): ResultStatus {
-  if (!value) return 'UNKNOWN'
-  const upper = value.toUpperCase()
-  if (upper === 'PAID') return 'PAID'
-  if (upper === 'PENDING') return 'PENDING'
-  if (upper === 'FAILED') return 'FAILED'
-  return 'UNKNOWN'
+  return normalizeOrderStatus(value) ?? 'UNKNOWN'
 }
 
 function getStatusMessage(status: ResultStatus): string {
-  if (status === 'PAID') return 'Payment processed successfully.'
-  if (status === 'PENDING') return 'Payment is still pending. Please check back shortly.'
-  if (status === 'FAILED') return 'Payment failed to finalize. You can retry payment with refreshed inventory and pricing.'
+  if (status === ORDER_STATUS.PAID) return 'Payment processed successfully.'
+  if (status === ORDER_STATUS.PENDING) return 'Payment is still pending. Please check back shortly.'
+  if (status === ORDER_STATUS.FAILED) return 'Payment failed to finalize. You can retry payment with refreshed inventory and pricing.'
   return 'We could not confirm payment yet. Please contact support if you were charged.'
 }
 
@@ -56,7 +60,7 @@ export default function CheckoutResult({ reference, status, order }: CheckoutRes
   const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@example.com'
 
   useEffect(() => {
-    if (status !== 'PAID') return
+    if (status !== ORDER_STATUS.PAID) return
     clearCart()
   }, [status])
 
@@ -80,7 +84,9 @@ export default function CheckoutResult({ reference, status, order }: CheckoutRes
         }
 
         if (err.response?.status === 401) {
-          window.location.href = '/auth/signin?callbackUrl=' + encodeURIComponent('/checkout/result?reference=' + reference + '&status=FAILED')
+          window.location.href =
+            '/auth/signin?callbackUrl=' +
+            encodeURIComponent('/checkout/result?reference=' + reference + '&status=' + ORDER_STATUS.FAILED)
           return
         }
       }
@@ -137,7 +143,7 @@ export default function CheckoutResult({ reference, status, order }: CheckoutRes
           </p>
         )}
 
-        {status === 'FAILED' && reference && (
+        {status === ORDER_STATUS.FAILED && reference && (
           <div className="mt-6 rounded border border-amber-300 bg-amber-50 p-4">
             <h3 className="font-semibold text-amber-900">Recovery actions</h3>
             <p className="mt-2 text-sm text-amber-800">
@@ -226,7 +232,7 @@ export const getServerSideProps: GetServerSideProps<CheckoutResultProps> = async
         paystackReference: order.paystackReference,
         createdAt: order.createdAt.toISOString(),
         items: order.items.map((item) => {
-          const snapshot = item as any
+          const snapshot = item as OrderItemSnapshotLike
           return {
             id: item.id,
             quantity: item.quantity,

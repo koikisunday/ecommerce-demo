@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from '@prisma/client'
+import { ORDER_STATUS } from './orderStatus'
 
 export class InventoryUnavailableError extends Error {
   constructor(message: string) {
@@ -41,7 +42,7 @@ export async function markOrderPaidWithInventory(prisma: PrismaClient, input: Ma
       })
     }
 
-    if (order.status === 'PAID') {
+    if (order.status === ORDER_STATUS.PAID) {
       return { applied: true as const, alreadyPaid: true as const }
     }
 
@@ -56,7 +57,7 @@ export async function markOrderPaidWithInventory(prisma: PrismaClient, input: Ma
       }
     }
 
-    await tx.order.update({ where: { id: order.id }, data: { status: 'PAID' } })
+    await tx.order.update({ where: { id: order.id }, data: { status: ORDER_STATUS.PAID } })
     return { applied: true as const, alreadyPaid: false as const }
   })
 }

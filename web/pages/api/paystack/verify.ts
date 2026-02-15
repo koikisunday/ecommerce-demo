@@ -2,6 +2,8 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { verifyTransaction } from '../../../utils/paystack'
 import { PrismaClient } from '@prisma/client'
 import { InventoryUnavailableError, markOrderPaidWithInventory } from '../../../utils/orders'
+import { logError, logInfo, logWarn } from '../../../utils/observability'
+import { ORDER_STATUS, type OrderStatus } from '../../../utils/orderStatus'
 
 const prisma = new PrismaClient()
 
@@ -10,6 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!reference || typeof reference !== 'string') return res.status(400).end('Missing reference')
 
   try {
+    logInfo('paystack_verify.started', { reference })
     const result = await verifyTransaction(reference)
     const status = result.data.status
     const ref = result.data.reference
@@ -19,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       select: { id: true, totalAmount: true }
     })
 
-    let statusParam = status === 'success' ? 'PAID' : 'PENDING'
+    let statusParam: OrderStatus = status === 'success' ? ORDER_STATUS.PAID : ORDER_STATUS.PENDING
 
     if (order) {
       if (status === 'success') {
@@ -31,10 +34,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             reference: ref,
             rawPayload: result.data
           })
+          logInfo('paystack_verify.order_paid', { orderId: order.id, reference: ref })
         } catch (error) {
           if (error instanceof InventoryUnavailableError) {
-            await prisma.order.update({ where: { id: order.id }, data: { status: 'FAILED' } })
-            statusParam = 'FAILED'
+            await prisma.order.update({ where: { id: order.id }, data: { status: ORDER_STATUS.FAILED } })
+            statusParam = ORDER_STATUS.FAILED
+            logWarn('paystack_verify.inventory_unavailable', { orderId: order.id, reference: ref })
           } else {
             throw error
           }
@@ -52,6 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               rawPayload: JSON.stringify(result.data)
             }
           })
+          logInfo('paystack_verify.payment_recorded', { orderId: order.id, reference: ref, status })
         }
       }
     }
@@ -61,7 +67,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       '/checkout/result?reference=' + encodeURIComponent(ref) + '&status=' + encodeURIComponent(statusParam)
     )
   } catch (err) {
-    console.error(err)
+    logError('paystack_verify.failed', {
+      reference,
+      message: err instanceof Error ? err.message : 'Unknown error'
+    })
     return res.status(500).end('Verification failed')
   }
 }

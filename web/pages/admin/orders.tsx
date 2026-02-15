@@ -5,7 +5,19 @@ import Link from 'next/link'
 
 const prisma = new PrismaClient()
 
-export default function AdminOrdersPage({ orders }: any) {
+type AdminOrderView = {
+  id: number
+  paystackReference: string | null
+  customerEmail: string
+  status: string
+  totalAmount: number
+}
+
+type AdminOrdersPageProps = {
+  orders: AdminOrderView[]
+}
+
+export default function AdminOrdersPage({ orders }: AdminOrdersPageProps) {
   return (
     <div className="min-h-screen p-8">
       <div className="mb-4 flex items-center justify-between">
@@ -16,7 +28,7 @@ export default function AdminOrdersPage({ orders }: any) {
       </div>
       {orders.length === 0 && <p>No orders found.</p>}
       <ul>
-        {orders.map((o: any) => (
+        {orders.map((o) => (
           <li key={o.id} className="p-3 border rounded mb-2">
             <div><strong>Reference:</strong> {o.paystackReference ?? '—'}</div>
             <div><strong>Customer:</strong> {o.customerEmail}</div>
@@ -42,5 +54,5 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
 
   // Admin sees all orders; vendor could filter by their products in future
   const orders = await prisma.order.findMany({ include: { items: true } })
-  return { props: { orders } }
+  return { props: { orders } satisfies AdminOrdersPageProps }
 }
