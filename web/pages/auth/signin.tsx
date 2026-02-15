@@ -1,16 +1,19 @@
 import { getCsrfToken, signIn } from 'next-auth/react'
 import { useState } from 'react'
+import { useRouter } from 'next/router'
 
 export default function SignIn({ csrfToken }: any) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const router = useRouter()
+  const callbackUrl = typeof router.query.callbackUrl === 'string' ? router.query.callbackUrl : '/'
 
   return (
     <div className="min-h-screen flex items-center justify-center">
       <form
         onSubmit={(e) => {
           e.preventDefault()
-          signIn('credentials', { email, password, callbackUrl: '/' })
+          signIn('credentials', { email, password, callbackUrl })
         }}
         className="p-8 bg-white rounded shadow-md w-full max-w-md"
       >

@@ -3,10 +3,11 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import { PrismaClient } from '@prisma/client'
 import { verifyPassword } from '../../../utils/auth'
+import type { NextAuthOptions } from 'next-auth'
 
 const prisma = new PrismaClient()
 
-export default NextAuth({
+export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma as any),
   providers: [
     CredentialsProvider({
@@ -28,4 +29,6 @@ export default NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: 'database' },
   pages: { signIn: '/auth/signin' }
-})
+}
+
+export default NextAuth(authOptions)

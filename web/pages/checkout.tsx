@@ -3,6 +3,7 @@ import axios from 'axios'
 import Link from 'next/link'
 import type { GetServerSideProps } from 'next'
 import { PrismaClient } from '@prisma/client'
+import { getSession } from 'next-auth/react'
 import { readCart, removeFromCart, setCartItemQuantity, writeCart, type CartItem } from '../utils/cart'
 
 type ProductForCheckout = {
@@ -15,10 +16,11 @@ type ProductForCheckout = {
 
 type CheckoutProps = {
   products: ProductForCheckout[]
+  customerEmail: string
+  customerName: string | null
 }
 
-export default function CheckoutPage({ products }: CheckoutProps) {
-  const [email, setEmail] = useState('customer@example.com')
+export default function CheckoutPage({ products, customerEmail, customerName }: CheckoutProps) {
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -82,8 +84,6 @@ export default function CheckoutPage({ products }: CheckoutProps) {
 
     try {
       const res = await axios.post('/api/checkout', {
-        customerEmail: email,
-        customerName: 'Guest',
         items: checkoutItems
       })
       window.location.href = res.data.authorization_url
@@ -173,14 +173,12 @@ export default function CheckoutPage({ products }: CheckoutProps) {
                 <span className="text-xl font-bold">${(total / 100).toFixed(2)}</span>
               </div>
 
-              <label className="mb-1 block text-sm font-medium">Email</label>
-              <input
-                type="email"
-                className="mb-3 w-full rounded border p-2"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <div className="mb-3 rounded border border-slate-200 bg-white p-3 text-sm text-gray-700">
+                <p>
+                  Checkout as: <span className="font-medium">{customerName ?? customerEmail}</span>
+                </p>
+                <p className="text-gray-600">{customerEmail}</p>
+              </div>
 
               {errorMessage && <p className="mb-3 text-sm text-red-600">{errorMessage}</p>}
 
@@ -201,7 +199,17 @@ export default function CheckoutPage({ products }: CheckoutProps) {
 
 const prisma = new PrismaClient()
 
-export const getServerSideProps: GetServerSideProps<CheckoutProps> = async () => {
+export const getServerSideProps: GetServerSideProps<CheckoutProps> = async (ctx) => {
+  const session = await getSession(ctx)
+  if (!session?.user?.email) {
+    return {
+      redirect: {
+        destination: '/auth/signin?callbackUrl=' + encodeURIComponent('/checkout'),
+        permanent: false
+      }
+    }
+  }
+
   const products = await prisma.product.findMany({
     select: {
       id: true,
@@ -212,5 +220,11 @@ export const getServerSideProps: GetServerSideProps<CheckoutProps> = async () =>
     }
   })
 
-  return { props: { products } }
+  return {
+    props: {
+      products,
+      customerEmail: session.user.email,
+      customerName: session.user.name ?? null
+    }
+  }
 }

@@ -1,13 +1,20 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { PrismaClient } from '@prisma/client'
+import { getSession } from 'next-auth/react'
 import { initializeTransaction } from '../../utils/paystack'
 
 const prisma = new PrismaClient()
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).end()
-  const { items, customerEmail, customerName } = req.body
-  if (!items || !Array.isArray(items) || !customerEmail) return res.status(400).json({ error: 'Invalid payload' })
+  const session = await getSession({ req } as any)
+  const customerEmail = session?.user?.email ?? null
+  const customerName = session?.user?.name ?? null
+
+  if (!customerEmail) return res.status(401).json({ error: 'Authentication required' })
+
+  const { items } = req.body
+  if (!items || !Array.isArray(items)) return res.status(400).json({ error: 'Invalid payload' })
 
   // calculate total
   let total = 0
