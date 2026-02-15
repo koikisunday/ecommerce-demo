@@ -24,7 +24,7 @@ export default function AdminOrdersPage({ orders }: any) {
 }
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
-  const session = await getSession(ctx)
+  const session = await getSession({ req: ctx.req } as any)
   if (!session?.user?.email) {
     return { redirect: { destination: '/auth/signin', permanent: false } }
   }

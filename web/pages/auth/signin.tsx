@@ -1,8 +1,8 @@
-import { getCsrfToken, signIn } from 'next-auth/react'
+import { signIn } from 'next-auth/react'
 import { useState } from 'react'
 import { useRouter } from 'next/router'
 
-export default function SignIn({ csrfToken }: any) {
+export default function SignIn() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const router = useRouter()
@@ -17,7 +17,6 @@ export default function SignIn({ csrfToken }: any) {
         }}
         className="p-8 bg-white rounded shadow-md w-full max-w-md"
       >
-        <input name="csrfToken" type="hidden" defaultValue={csrfToken} />
         <h2 className="text-xl font-semibold mb-4">Sign in</h2>
         <label className="block">Email</label>
         <input className="w-full p-2 border mb-3" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -27,12 +26,4 @@ export default function SignIn({ csrfToken }: any) {
       </form>
     </div>
   )
-}
-
-export async function getServerSideProps(context: any) {
-  return {
-    props: {
-      csrfToken: await getCsrfToken(context)
-    }
-  }
 }

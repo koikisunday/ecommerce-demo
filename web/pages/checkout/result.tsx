@@ -1,4 +1,5 @@
 import type { GetServerSideProps } from 'next'
+import Link from 'next/link'
 import { useEffect } from 'react'
 import { PrismaClient } from '@prisma/client'
 import { clearCart } from '../../utils/cart'
@@ -99,9 +100,9 @@ export default function CheckoutResult({ reference, status, order }: CheckoutRes
         )}
 
         <div className="mt-6">
-          <a href="/orders" className="text-indigo-600">
+          <Link href="/orders" className="text-indigo-600">
             View your orders
-          </a>
+          </Link>
         </div>
       </div>
     </div>

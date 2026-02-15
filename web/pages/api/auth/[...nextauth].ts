@@ -1,13 +1,13 @@
 import NextAuth from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import { PrismaAdapter } from '@next-auth/prisma-adapter'
+import { PrismaAdapter } from '@auth/prisma-adapter'
 import { PrismaClient } from '@prisma/client'
 import { verifyPassword } from '../../../utils/auth'
-import type { NextAuthOptions } from 'next-auth'
+import type { NextAuthConfig } from 'next-auth'
 
 const prisma = new PrismaClient()
 
-export const authOptions: NextAuthOptions = {
+export const authOptions: NextAuthConfig = {
   adapter: PrismaAdapter(prisma as any),
   providers: [
     CredentialsProvider({
@@ -18,9 +18,13 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials) return null
-        const user = await prisma.user.findUnique({ where: { email: credentials.email } })
+        const email = typeof credentials.email === 'string' ? credentials.email : null
+        const password = typeof credentials.password === 'string' ? credentials.password : null
+        if (!email || !password) return null
+
+        const user = await prisma.user.findUnique({ where: { email } })
         if (!user || !user.hashedPassword) return null
-        const valid = await verifyPassword(credentials.password, user.hashedPassword)
+        const valid = await verifyPassword(password, user.hashedPassword)
         if (!valid) return null
         return { id: user.id.toString(), email: user.email, name: user.name }
       }

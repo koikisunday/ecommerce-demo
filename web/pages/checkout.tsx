@@ -200,7 +200,7 @@ export default function CheckoutPage({ products, customerEmail, customerName }: 
 const prisma = new PrismaClient()
 
 export const getServerSideProps: GetServerSideProps<CheckoutProps> = async (ctx) => {
-  const session = await getSession(ctx)
+  const session = await getSession({ req: ctx.req } as any)
   if (!session?.user?.email) {
     return {
       redirect: {
