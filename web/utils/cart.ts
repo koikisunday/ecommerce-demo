@@ -4,6 +4,7 @@ export type CartItem = {
 }
 
 const CART_STORAGE_KEY = 'ecommerce-demo-cart-v1'
+export const CART_UPDATED_EVENT = 'cart:updated'
 
 function isValidCartItem(item: unknown): item is CartItem {
   if (!item || typeof item !== 'object') return false
@@ -36,6 +37,7 @@ export function readCart(): CartItem[] {
 export function writeCart(items: CartItem[]): void {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items))
+  window.dispatchEvent(new CustomEvent(CART_UPDATED_EVENT))
 }
 
 export function getCartItemCount(items: CartItem[]): number {

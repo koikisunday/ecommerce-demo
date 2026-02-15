@@ -1,10 +1,10 @@
 import Head from 'next/head'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { GetServerSideProps } from 'next'
 import { PrismaClient } from '@prisma/client'
-import { addToCart, getCartItemCount, readCart } from '../utils/cart'
+import { addToCart } from '../utils/cart'
 
 const ThreeBackground = dynamic(() => import('../components/ThreeBackground'), { ssr: false })
 
@@ -21,16 +21,10 @@ type HomeProps = {
 }
 
 export default function Home({ products }: HomeProps) {
-  const [cartCount, setCartCount] = useState(0)
   const [message, setMessage] = useState<string | null>(null)
 
-  useEffect(() => {
-    setCartCount(getCartItemCount(readCart()))
-  }, [])
-
   function handleAddToCart(productId: number) {
-    const next = addToCart(productId, 1)
-    setCartCount(getCartItemCount(next))
+    addToCart(productId, 1)
     setMessage('Added to cart')
     window.setTimeout(() => setMessage(null), 1200)
   }
@@ -45,20 +39,11 @@ export default function Home({ products }: HomeProps) {
 
       <main className="relative z-10 mx-auto w-full max-w-6xl p-8">
         <div className="mb-8 rounded-xl bg-white/90 p-6 shadow-lg backdrop-blur">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold">Welcome to your multi-vendor store</h1>
-              <p className="mt-2 text-gray-600">Add products to cart, then complete checkout with Paystack.</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Link href="/orders" className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
-                Orders
-              </Link>
-              <Link href="/checkout" className="rounded bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-500">
-                Cart ({cartCount})
-              </Link>
-            </div>
-          </div>
+          <h1 className="text-3xl font-bold">Welcome to your multi-vendor store</h1>
+          <p className="mt-2 text-gray-600">Add products to cart, review them in Cart, then checkout with Paystack.</p>
+          <Link href="/cart" className="mt-4 inline-block rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
+            Open cart
+          </Link>
           {message && <p className="mt-3 text-sm text-green-700">{message}</p>}
         </div>
 
