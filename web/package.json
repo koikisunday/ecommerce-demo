@@ -9,7 +9,9 @@
     "lint": "eslint . --ext .ts,.tsx",
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:generate": "prisma generate",
-    "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
+    "prisma:seed": "ts-node --transpile-only --compiler-options \"{\\\"module\\\":\\\"commonjs\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" ../prisma/seed.ts",
+    "smoke:local": "node scripts/smoke-local.mjs",
+    "staging:verify": "node scripts/verify-staging.mjs",
     "test": "jest --runInBand"
   },
   "dependencies": {
@@ -47,6 +49,6 @@
   },
   "prisma": {
     "schema": "../prisma/schema.prisma",
-    "seed": "ts-node --transpile-only ../prisma/seed.ts"
+    "seed": "ts-node --transpile-only --compiler-options \"{\\\"module\\\":\\\"commonjs\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" ../prisma/seed.ts"
   }
 }

@@ -56,6 +56,49 @@ npm test
 
 Note: tests mock DB interactions and Paystack requests; ensure `PAYSTACK_SECRET` is set when running webhook tests so signature generation matches.
 
+Fresh-environment smoke test (clean DB)
+
+```bash
+cd web
+npm run smoke:local
+```
+
+What this does:
+- creates a clean `prisma/smoke.db`
+- applies schema migration (falls back to checked-in SQL if Prisma migrate engine fails on your machine)
+- runs `npm run prisma:seed`
+- runs targeted checkout/retry/admin lifecycle tests
+
+CI
+
+- GitHub Actions workflow: `.github/workflows/ci.yml`
+- Enforces:
+  - Prisma schema validation (`npx prisma validate`)
+  - lint (`npm run lint`)
+  - tests (`npm test`)
+  - production build (`npm run build`)
+
+Staging deploy and verification
+
+- GitHub Actions workflow: `.github/workflows/staging.yml` (manual trigger via `workflow_dispatch`)
+- Required repo secrets:
+  - `STAGING_DEPLOY_WEBHOOK_URL`
+  - `STAGING_BASE_URL` (for example, `https://staging.example.com`)
+  - `STAGING_PAYSTACK_SECRET`
+  - Optional: `STAGING_VERIFY_REFERENCE` (a real Paystack sandbox reference to validate callback redirect)
+- The workflow:
+  - triggers your staging deployment webhook
+  - waits for rollout
+  - verifies `/api/paystack/verify` missing-reference behavior
+  - verifies webhook signature handling (invalid and valid signature paths)
+
+Manual Paystack sandbox callback/webhook verification (staging)
+
+1. Open staging storefront and complete a sandbox payment flow through Paystack checkout.
+2. Confirm Paystack redirects through `/api/paystack/verify?reference=<real_ref>` and lands on `/checkout/result?...`.
+3. Confirm order status updates in staging (`PAID` on success, `FAILED` on inventory failure path).
+4. Confirm webhook delivery status is successful in your Paystack dashboard for the staging webhook URL.
+
 Cloud development (no local Docker required) — recommended now:
 
 - Gitpod: Open this repository in Gitpod to run the full stack (Postgres, Redis, Meilisearch) and the Next.js app in a cloud workspace. Use the URL:
